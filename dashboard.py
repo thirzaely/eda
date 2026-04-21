@@ -1,85 +1,135 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
 
+# ======================
+# CONFIG
+# ======================
 st.set_page_config(
     page_title="Customer Analysis Dashboard",
     layout="wide"
 )
 
+st.title("📊 Customer Analysis Dashboard")
+
+st.write("APP STARTED")
+
+# ======================
+# CEK FILE
+# ======================
+if not os.path.exists("main_table.csv"):
+    st.error("File main_table.csv tidak ditemukan di repository")
+    st.stop()
+
+# ======================
+# LOAD DATA (SAFE)
+# ======================
 @st.cache_data
 def load_data():
     df = pd.read_csv("main_table.csv")
+    df.columns = df.columns.str.strip()
     return df
 
 df = load_data()
 
+st.write("Kolom dataset:", df.columns.tolist())
+
+# ======================
+# VALIDASI KOLOM
+# ======================
+required_cols = ["customer_id", "Monetary", "Frequency", "Segment", "customer_city"]
+
+missing = [c for c in required_cols if c not in df.columns]
+
+if missing:
+    st.error(f"Kolom hilang: {missing}")
+    st.stop()
+
+# ======================
+# SIDEBAR MENU
+# ======================
 st.sidebar.title("Menu")
 menu = st.sidebar.radio(
     "Pilih Halaman",
     ["Overview", "RFM Analysis", "Geospatial", "Customer Behavior"]
 )
 
+# ======================
+# OVERVIEW
+# ======================
 if menu == "Overview":
-    st.title("📊 Overview")
+    st.header("📊 Overview")
 
     col1, col2 = st.columns(2)
 
-    col1.metric("Total Customer", df["customer_id"].nunique())
-    col2.metric("Total Revenue", f"{df['Monetary'].sum():,.0f}")
+    total_customer = df["customer_id"].nunique()
+    total_revenue = df["Monetary"].sum()
 
-    st.subheader("Distribusi Revenue Customer")
+    col1.metric("Total Customer", total_customer)
+    col2.metric("Total Revenue", f"{total_revenue:,.0f}")
+
+    st.subheader("Distribusi Revenue")
 
     fig, ax = plt.subplots()
-    ax.hist(df["Monetary"])
+    ax.hist(df["Monetary"].dropna(), bins=20)
     ax.set_title("Distribusi Monetary")
     st.pyplot(fig)
 
-    st.markdown("""
+    # ===== INSIGHT DATA-DRIVEN =====
+    median_val = df["Monetary"].median()
+    max_val = df["Monetary"].max()
+
+    st.markdown(f"""
     **Insight:**
-    - Sebagian besar pelanggan memiliki nilai transaksi rendah.
-    - Sebagian kecil pelanggan menyumbang sebagian besar revenue.
+    - Median transaksi pelanggan adalah **{median_val:,.0f}**
+    - Terdapat outlier hingga **{max_val:,.0f}**
+    - Distribusi menunjukkan kecenderungan skew ke kanan
     """)
 
+# ======================
+# RFM ANALYSIS
+# ======================
 elif menu == "RFM Analysis":
-    st.title("👥 RFM Analysis")
+    st.header("👥 RFM Analysis")
 
-    st.subheader("Distribusi Segmen Pelanggan")
+    st.subheader("Distribusi Segment")
 
     fig, ax = plt.subplots()
     df["Segment"].value_counts().plot(kind="bar", ax=ax)
     st.pyplot(fig)
 
-    st.subheader("Kontribusi Revenue per Segmen")
+    st.subheader("Revenue per Segment")
+
+    seg_revenue = df.groupby("Segment")["Monetary"].sum().sort_values(ascending=False)
 
     fig, ax = plt.subplots()
-    df.groupby("Segment")["Monetary"].sum().sort_values(ascending=False).plot(kind="bar", ax=ax)
+    seg_revenue.plot(kind="bar", ax=ax)
     st.pyplot(fig)
 
-    st.subheader("Rata-rata Pengeluaran per Segmen")
+    # ===== INSIGHT DATA-DRIVEN =====
+    top_segment = seg_revenue.idxmax()
+    top_value = seg_revenue.max()
 
-    fig, ax = plt.subplots()
-    df.groupby("Segment")["Monetary"].mean().plot(kind="bar", ax=ax)
-    st.pyplot(fig)
-
-    st.markdown("""
+    st.markdown(f"""
     **Insight:**
-    - Segmen Champions memberikan kontribusi terbesar terhadap revenue.
-    - Revenue tidak tersebar merata di semua pelanggan.
+    - Segment dengan kontribusi terbesar adalah **{top_segment}**
+    - Kontribusi tertinggi mencapai **{top_value:,.0f}**
+    - Terdapat ketimpangan kontribusi antar segment
     """)
 
+# ======================
+# GEOSPATIAL (city analysis)
+# ======================
 elif menu == "Geospatial":
-    st.title("🌍 Geospatial Analysis")
+    st.header("🌍 City Analysis")
 
-    # AGREGASI DARI MAIN TABLE (WAJIB)
     geo = df.groupby("customer_city").agg({
         "customer_id": "count",
         "Monetary": "sum"
     }).reset_index()
 
     geo.columns = ["city", "total_customers", "total_revenue"]
-
-    st.subheader("Top Kota Berdasarkan Jumlah Customer")
 
     top_city = geo.sort_values("total_customers", ascending=False).head(10)
 
@@ -88,33 +138,21 @@ elif menu == "Geospatial":
     plt.xticks(rotation=45)
     st.pyplot(fig)
 
-    st.subheader("Top Kota Berdasarkan Revenue")
+    # ===== INSIGHT DATA-DRIVEN =====
+    best_city = geo.sort_values("total_revenue", ascending=False).iloc[0]
 
-    top_revenue = geo.sort_values("total_revenue", ascending=False).head(10)
-
-    fig, ax = plt.subplots()
-    ax.bar(top_revenue["city"], top_revenue["total_revenue"])
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
-
-    st.subheader("Transaksi vs Revenue")
-
-    fig, ax = plt.subplots()
-    ax.scatter(geo["total_customers"], geo["total_revenue"])
-    ax.set_xlabel("Jumlah Customer")
-    ax.set_ylabel("Total Revenue")
-    st.pyplot(fig)
-
-    st.markdown("""
+    st.markdown(f"""
     **Insight:**
-    - Tidak semua kota dengan customer banyak menghasilkan revenue tinggi.
-    - Terdapat perbedaan karakteristik pasar antar wilayah.
+    - Kota dengan revenue tertinggi adalah **{best_city['city']}**
+    - Total revenue mencapai **{best_city['total_revenue']:,.0f}**
+    - Tidak semua kota dengan banyak customer menghasilkan revenue tinggi
     """)
 
+# ======================
+# CUSTOMER BEHAVIOR
+# ======================
 elif menu == "Customer Behavior":
-    st.title("📈 Customer Behavior")
-
-    st.subheader("Frequency vs Monetary")
+    st.header("📈 Customer Behavior")
 
     fig, ax = plt.subplots()
     ax.scatter(df["Frequency"], df["Monetary"])
@@ -122,17 +160,13 @@ elif menu == "Customer Behavior":
     ax.set_ylabel("Monetary")
     st.pyplot(fig)
 
-    st.subheader("Distribusi Tipe Pelanggan")
+    # ===== INSIGHT DATA-DRIVEN =====
+    avg_freq = df["Frequency"].mean()
+    avg_monetary = df["Monetary"].mean()
 
-    if "Customer_Type" in df.columns:
-        fig, ax = plt.subplots()
-        df["Customer_Type"].value_counts().head(10).plot(kind="bar", ax=ax)
-        plt.xticks(rotation=45)
-        st.pyplot(fig)
-
-    st.markdown("""
+    st.markdown(f"""
     **Insight:**
-    - Mayoritas pelanggan hanya melakukan satu transaksi.
-    - Pelanggan bernilai tinggi tidak selalu memiliki frekuensi tinggi.
+    - Rata-rata frekuensi transaksi: **{avg_freq:.2f}**
+    - Rata-rata pengeluaran: **{avg_monetary:,.0f}**
+    - Mayoritas pelanggan berada di area low-frequency segment
     """)
-
