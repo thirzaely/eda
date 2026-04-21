@@ -1,4 +1,8 @@
 import streamlit as st
+
+st.write("🔥 APP STARTED - DEBUG 1")
+st.stop()
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import os
