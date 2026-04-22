@@ -1,9 +1,5 @@
 import streamlit as st
-
-st.write("🔥 APP STARTED - DEBUG 1")
-
 import pandas as pd
-import matplotlib.pyplot as plt
 import os
 
 # ======================
@@ -16,7 +12,7 @@ st.set_page_config(
 
 st.title("📊 Customer Analysis Dashboard")
 
-st.write("APP STARTED")
+st.write("🔥 APP STARTED")
 
 # ======================
 # CEK FILE
@@ -26,7 +22,7 @@ if not os.path.exists("main_table.csv"):
     st.stop()
 
 # ======================
-# LOAD DATA (SAFE)
+# LOAD DATA
 # ======================
 @st.cache_data
 def load_data():
@@ -72,22 +68,18 @@ if menu == "Overview":
     col1.metric("Total Customer", total_customer)
     col2.metric("Total Revenue", f"{total_revenue:,.0f}")
 
-    st.subheader("Distribusi Revenue")
+    st.subheader("Distribusi Revenue (Simplified)")
 
-    fig, ax = plt.subplots()
-    ax.hist(df["Monetary"].dropna(), bins=20)
-    ax.set_title("Distribusi Monetary")
-    st.pyplot(fig)
+    st.bar_chart(df["Monetary"])
 
-    # ===== INSIGHT DATA-DRIVEN =====
     median_val = df["Monetary"].median()
     max_val = df["Monetary"].max()
 
     st.markdown(f"""
     **Insight:**
-    - Median transaksi pelanggan adalah **{median_val:,.0f}**
-    - Terdapat outlier hingga **{max_val:,.0f}**
-    - Distribusi menunjukkan kecenderungan skew ke kanan
+    - Median transaksi pelanggan: **{median_val:,.0f}**
+    - Nilai maksimum: **{max_val:,.0f}**
+    - Distribusi cenderung tidak merata
     """)
 
 # ======================
@@ -98,31 +90,26 @@ elif menu == "RFM Analysis":
 
     st.subheader("Distribusi Segment")
 
-    fig, ax = plt.subplots()
-    df["Segment"].value_counts().plot(kind="bar", ax=ax)
-    st.pyplot(fig)
+    segment_count = df["Segment"].value_counts()
+    st.bar_chart(segment_count)
 
     st.subheader("Revenue per Segment")
 
     seg_revenue = df.groupby("Segment")["Monetary"].sum().sort_values(ascending=False)
+    st.bar_chart(seg_revenue)
 
-    fig, ax = plt.subplots()
-    seg_revenue.plot(kind="bar", ax=ax)
-    st.pyplot(fig)
-
-    # ===== INSIGHT DATA-DRIVEN =====
     top_segment = seg_revenue.idxmax()
     top_value = seg_revenue.max()
 
     st.markdown(f"""
     **Insight:**
-    - Segment dengan kontribusi terbesar adalah **{top_segment}**
-    - Kontribusi tertinggi mencapai **{top_value:,.0f}**
-    - Terdapat ketimpangan kontribusi antar segment
+    - Segment terbesar: **{top_segment}**
+    - Kontribusi revenue: **{top_value:,.0f}**
+    - Distribusi tidak merata antar segment
     """)
 
 # ======================
-# GEOSPATIAL (city analysis)
+# GEOSPATIAL
 # ======================
 elif menu == "Geospatial":
     st.header("🌍 City Analysis")
@@ -136,18 +123,14 @@ elif menu == "Geospatial":
 
     top_city = geo.sort_values("total_customers", ascending=False).head(10)
 
-    fig, ax = plt.subplots()
-    ax.bar(top_city["city"], top_city["total_customers"])
-    plt.xticks(rotation=45)
-    st.pyplot(fig)
+    st.bar_chart(top_city.set_index("city")["total_customers"])
 
-    # ===== INSIGHT DATA-DRIVEN =====
     best_city = geo.sort_values("total_revenue", ascending=False).iloc[0]
 
     st.markdown(f"""
     **Insight:**
-    - Kota dengan revenue tertinggi adalah **{best_city['city']}**
-    - Total revenue mencapai **{best_city['total_revenue']:,.0f}**
+    - Kota tertinggi revenue: **{best_city['city']}**
+    - Total revenue: **{best_city['total_revenue']:,.0f}**
     - Tidak semua kota dengan banyak customer menghasilkan revenue tinggi
     """)
 
@@ -157,19 +140,16 @@ elif menu == "Geospatial":
 elif menu == "Customer Behavior":
     st.header("📈 Customer Behavior")
 
-    fig, ax = plt.subplots()
-    ax.scatter(df["Frequency"], df["Monetary"])
-    ax.set_xlabel("Frequency")
-    ax.set_ylabel("Monetary")
-    st.pyplot(fig)
+    st.subheader("Frequency vs Monetary")
 
-    # ===== INSIGHT DATA-DRIVEN =====
+    st.scatter_chart(df[["Frequency", "Monetary"]])
+
     avg_freq = df["Frequency"].mean()
     avg_monetary = df["Monetary"].mean()
 
     st.markdown(f"""
     **Insight:**
-    - Rata-rata frekuensi transaksi: **{avg_freq:.2f}**
-    - Rata-rata pengeluaran: **{avg_monetary:,.0f}**
-    - Mayoritas pelanggan berada di area low-frequency segment
+    - Rata-rata frequency: **{avg_freq:.2f}**
+    - Rata-rata monetary: **{avg_monetary:,.0f}**
+    - Mayoritas pelanggan berada di low-frequency segment
     """)
