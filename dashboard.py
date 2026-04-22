@@ -2,6 +2,11 @@ import streamlit as st
 import pandas as pd
 import os
 
+st.write("APP STARTED")
+
+st.write("cwd:", os.getcwd())
+st.write("files:", os.listdir())
+
 # ======================
 # CONFIG
 # ======================
